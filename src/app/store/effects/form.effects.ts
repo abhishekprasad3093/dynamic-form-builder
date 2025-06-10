@@ -27,7 +27,8 @@ export class FormEffects {
           map(forms => loadFormsSuccess({ forms })),
           catchError(error => {
             console.error('[FormEffects] Error loading forms:', error);
-            return of({ type: '[Form] Load Forms Failure', error: error.message });
+            // Dispatch failure action with error message
+            return of(submitFormFailure({ error: error.message || 'Failed to load forms' }));
           })
         );
       })
@@ -53,7 +54,8 @@ export class FormEffects {
           map(sub => submitFormSuccess({ submission: sub })),
           catchError(error => {
             console.error('[FormEffects] Error submitting form:', error);
-            return of(submitFormFailure({ error: error.message }));
+            // Dispatch failure action with error message
+            return of(submitFormFailure({ error: error.message || 'Unknown submission error' }));
           })
         );
       })
@@ -69,4 +71,4 @@ export class FormEffects {
     console.log('[FormEffects] FormService injected:', !!this.formService);
     console.log('[FormEffects] MockApiService injected:', !!this.mockApiService);
   }
-} 
+}

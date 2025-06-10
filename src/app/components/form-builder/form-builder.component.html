@@ -24,6 +24,16 @@
               <label class="form-check-label">
                 <input type="checkbox" class="form-check-input" [(ngModel)]="formFields[i].required" (change)="updateField(i, formFields[i])"> Required
               </label>
+
+              <div *ngIf="field.type === 'text' || field.type === 'textarea'">
+                <label class="form-label">Min Length</label>
+                <input type="number" class="form-control" [(ngModel)]="formFields[i].validations.minLength" (input)="updateField(i, formFields[i])">
+                <label class="form-label">Max Length</label>
+                <input type="number" class="form-control" [(ngModel)]="formFields[i].validations.maxLength" (input)="updateField(i, formFields[i])">
+                <label class="form-label">Pattern (Regex)</label>
+                <input type="text" class="form-control" [(ngModel)]="formFields[i].validations.pattern" (input)="updateField(i, formFields[i])">
+              </div>
+
               <div *ngIf="field.type === 'dropdown' || field.type === 'checkbox' || field.type === 'radio'">
                 <label class="form-label">Options (comma-separated)</label>
                 <input type="text" class="form-control" [(ngModel)]="optionsInput[i]" (input)="updateOptions(i, $event.target)">

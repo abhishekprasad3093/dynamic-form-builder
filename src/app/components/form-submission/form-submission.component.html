@@ -1,34 +1,41 @@
 <div class="container">
-    <h2>Submit Form</h2>
-    <form [formGroup]="formGroup" (ngSubmit)="onSubmit()">
-      <div *ngIf="form$ | async as form">
-        <h3>{{ form.name }}</h3>
-        <div *ngFor="let field of form.fields" class="mb-3">
-          <label class="form-label">{{ field.label }} <span *ngIf="field.required">*</span></label>
-          <div *ngIf="field.helpText" class="form-text">{{ field.helpText }}</div>
-          <input *ngIf="field.type === 'text'" type="text" class="form-control" [formControlName]="field.id ?? ''">
-          <textarea *ngIf="field.type === 'textarea'" class="form-control" [formControlName]="field.id ?? null"></textarea>
-          <select *ngIf="field.type === 'dropdown'" class="form-control" [formControlName]="field.id || ''">
-            <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
-          </select>
-          <div *ngIf="field.type === 'checkbox'">
-            <div *ngFor="let option of field.options" class="form-check">
-              <input type="checkbox" class="form-check-input" [formControlName]="field.id || ''">
-              <label class="form-check-label">{{ option }}</label>
-            </div>
-          </div>
-          <input *ngIf="field.type === 'date'" type="date" class="form-control" [formControlName]="field.id || ''">
-          <div *ngIf="field.type === 'radio'">
-            <div *ngFor="let option of field.options" class="form-check">
-              <input type="radio" class="form-check-input" [formControlName]="field.id || ''" [value]="option">
-              <label class="form-check-label">{{ option }}</label>
-            </div>
-          </div>
-          <div *ngIf="formGroup.get(field.id ?? '')?.invalid && formGroup.get(field.id ?? '')?.touched" class="text-danger">
-            {{ field.label }} is invalid.
+  <h2>Submit Form</h2>
+  <form [formGroup]="formGroup" (ngSubmit)="onSubmit()">
+    <div *ngIf="form$ | async as form">
+      <h3>{{ form.name }}</h3>
+      <div *ngFor="let field of form.fields" class="mb-3">
+        <label class="form-label">{{ field.label }} <span *ngIf="field.required">*</span></label>
+        <div *ngIf="field.helpText" class="form-text">{{ field.helpText }}</div>
+        <input *ngIf="field.type === 'text'" type="text" class="form-control" [formControlName]="field.id ?? ''">
+        <textarea *ngIf="field.type === 'textarea'" class="form-control" [formControlName]="field.id ?? null"></textarea>
+        <select *ngIf="field.type === 'dropdown'" class="form-control" [formControlName]="field.id || ''">
+          <option *ngFor="let option of field.options" [value]="option">{{ option }}</option>
+        </select>
+        <div *ngIf="field.type === 'checkbox'">
+          <div *ngFor="let option of field.options" class="form-check">
+            <input type="checkbox" class="form-check-input" [formControlName]="field.id || ''">
+            <label class="form-check-label">{{ option }}</label>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary" [disabled]="formGroup.invalid">Submit</button>
+        <input *ngIf="field.type === 'date'" type="date" class="form-control" [formControlName]="field.id || ''">
+        <div *ngIf="field.type === 'radio'">
+          <div *ngFor="let option of field.options" class="form-check">
+            <input type="radio" class="form-check-input" [formControlName]="field.id || ''" [value]="option">
+            <label class="form-check-label">{{ option }}</label>
+          </div>
+        </div>
+        <div *ngIf="formGroup.get(field.id ?? '')?.invalid && formGroup.get(field.id ?? '')?.touched" class="text-danger">
+          {{ field.label }} is invalid.
+        </div>
       </div>
-    </form>
+      <button type="submit" class="btn btn-primary" [disabled]="formGroup.invalid">Submit</button>
+    </div>
+  </form>
+
+  <div *ngIf="submissionSuccess" class="alert alert-success mt-3">
+    Form submitted successfully!
   </div>
+  <div *ngIf="submissionError" class="alert alert-danger mt-3">
+    Error submitting form: {{ submissionError }}
+  </div>
+</div>

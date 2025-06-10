@@ -47,10 +47,13 @@ export class FormBuilderComponent implements OnInit {
         if (form) {
           this.formTemplate = form;
           this.formFields = form.fields;
-          // Initialize optionsInput for existing fields
+          // Initialize optionsInput for existing fields and ensure validations object exists
           this.formFields.forEach((field, index) => {
             if (field.options) {
               this.optionsInput[index] = field.options.join(',');
+            }
+            if (!field.validations) { // Ensure validations object is present
+              field.validations = {};
             }
           });
         }
@@ -62,32 +65,38 @@ export class FormBuilderComponent implements OnInit {
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
     } else {
-      const field = { ...event.previousContainer.data[event.previousIndex], id: uuidv4() };
+      // Ensure validations object is initialized for new fields
+      const newField = { 
+        ...event.previousContainer.data[event.previousIndex], 
+        id: uuidv4(), 
+        validations: event.previousContainer.data[event.previousIndex].validations || {} 
+      };
       transferArrayItem(
         event.previousContainer.data,
         event.container.data,
         event.previousIndex,
         event.currentIndex
       );
-      this.store.dispatch(addField({ field }));
+      // Replace the transferred item with the newField to ensure ID and validations are set
+      event.container.data[event.currentIndex] = newField;
+      this.store.dispatch(addField({ field: newField }));
     }
     this.updateForm();
   }
 
   updateField(index: number, updatedField: FormField) {
-    this.formFields[index] = updatedField;
+    this.formFields[index] = { ...updatedField }; // Create a new object to trigger change detection if necessary
     this.updateForm();
   }
 
   updateFormName(target: any) {
-    debugger;
     this.formTemplate.name = target.value;
     this.updateForm();
   }
 
   updateOptions(index: number, optionsString: any) {
     this.optionsInput[index] = optionsString.value;
-    const options = optionsString ? optionsString.split(',').map((opt: string) => opt.trim()).filter((opt: string) => opt) : [];
+    const options = optionsString ? optionsString.value.split(',').map((opt: string) => opt.trim()).filter((opt: string) => opt) : [];
     this.formFields[index] = { ...this.formFields[index], options };
     this.updateForm();
   }

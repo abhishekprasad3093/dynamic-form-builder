@@ -1,17 +1,19 @@
 import { createReducer, on } from '@ngrx/store';
 import { FormTemplate, FormSubmission } from '../../models/form.model';
-import { addField, updateForm, loadFormsSuccess, submitFormSuccess } from '../actions/form.actions';
+import { addField, updateForm, loadFormsSuccess, submitFormSuccess, submitFormFailure } from '../actions/form.actions';
 
 export interface FormState {
   forms: FormTemplate[];
   submissions: FormSubmission[];
   currentForm: FormTemplate | null;
+  submissionError: string | null; // Add submission error state
 }
 
 export const initialState: FormState = {
   forms: [],
   submissions: [],
-  currentForm: null
+  currentForm: null,
+  submissionError: null // Initialize submission error
 };
 
 export const formReducer = createReducer(
@@ -35,6 +37,11 @@ export const formReducer = createReducer(
   })),
   on(submitFormSuccess, (state, { submission }) => ({
     ...state,
-    submissions: [...state.submissions, submission]
+    submissions: [...state.submissions, submission],
+    submissionError: null // Clear error on success
+  })),
+  on(submitFormFailure, (state, { error }) => ({
+    ...state,
+    submissionError: error // Set error message on failure
   }))
 );

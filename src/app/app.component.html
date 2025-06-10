@@ -4,7 +4,7 @@
     <div class="navbar-nav">
       <a class="nav-link" routerLink="/forms" *ngIf="authService.isAuthenticated()">Forms</a>
       <a class="nav-link" routerLink="/form-builder/new" *ngIf="authService.isAdmin()">New Form</a>
-      <a class="nav-link" (click)="authService.logout()" routerLink="/login" *ngIf="authService.isAuthenticated()">Logout</a>
+      <a class="nav-link" routerLink="/submitted-forms" *ngIf="authService.isAdmin()">Submitted Data</a> <a class="nav-link" (click)="authService.logout()" routerLink="/login" *ngIf="authService.isAuthenticated()">Logout</a>
     </div>
   </div>
 </nav>
