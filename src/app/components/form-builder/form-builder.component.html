@@ -1,0 +1,40 @@
+<div class="container" *ngIf="authService.isAdmin(); else unauthorized">
+  <h2>Form Builder</h2>
+  <div class="mb-3">
+    <label for="formName" class="form-label">Form Name</label>
+    <input type="text" class="form-control" id="formName" [(ngModel)]="formTemplate.name" (input)="updateFormName($event.target)">
+  </div>
+  <div class="row">
+    <div class="col-md-4">
+      <h4>Available Fields</h4>
+      <div cdkDropList [cdkDropListData]="availableFields" (cdkDropListDropped)="drop($event)">
+        <div class="list-group-item" *ngFor="let field of availableFields" cdkDrag>{{ field.label }}</div>
+      </div>
+    </div>
+    <div class="col-md-8">
+      <h4>Form Canvas</h4>
+      <div cdkDropList [cdkDropListData]="formFields" (cdkDropListDropped)="drop($event)">
+        <div class="list-group-item" *ngFor="let field of formFields; let i = index">
+          <div class="row">
+            <div class="col-md-8">
+              <label class="form-label">Label</label>
+              <input type="text" class="form-control" [(ngModel)]="formFields[i].label" (input)="updateField(i, formFields[i])">
+              <label class="form-label">Help Text</label>
+              <input type="text" class="form-control" [(ngModel)]="formFields[i].helpText" (input)="updateField(i, formFields[i])">
+              <label class="form-check-label">
+                <input type="checkbox" class="form-check-input" [(ngModel)]="formFields[i].required" (change)="updateField(i, formFields[i])"> Required
+              </label>
+              <div *ngIf="field.type === 'dropdown' || field.type === 'checkbox' || field.type === 'radio'">
+                <label class="form-label">Options (comma-separated)</label>
+                <input type="text" class="form-control" [(ngModel)]="optionsInput[i]" (input)="updateOptions(i, $event.target)">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<ng-template #unauthorized>
+  <div class="alert alert-danger">Unauthorized access. Admins only.</div>
+</ng-template>

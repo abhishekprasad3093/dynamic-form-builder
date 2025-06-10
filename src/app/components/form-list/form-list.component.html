@@ -1,0 +1,21 @@
+<div class="container">
+    <h2>Form Templates</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let form of forms$ | async">
+          <td>{{ form.name }}</td>
+          <td>
+            <a class="btn btn-primary btn-sm" [routerLink]="['/form-preview', form.id]">Preview</a>
+            <a class="btn btn-secondary btn-sm" [routerLink]="['/form-submission', form.id]">Fill</a>
+            <a class="btn btn-warning btn-sm" [routerLink]="['/form-builder', form.id]" *ngIf="authService.isAdmin()">Edit</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
