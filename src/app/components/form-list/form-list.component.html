@@ -1,21 +1,30 @@
 <div class="container">
-    <h2>Form Templates</h2>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let form of forms$ | async">
-          <td>{{ form.name }}</td>
-          <td>
-            <a class="btn btn-primary btn-sm" [routerLink]="['/form-preview', form.id]">Preview</a>
-            <a class="btn btn-secondary btn-sm" [routerLink]="['/form-submission', form.id]">Fill</a>
-            <a class="btn btn-warning btn-sm" [routerLink]="['/form-builder', form.id]" *ngIf="authService.isAdmin()">Edit</a>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+  <h2>Form Templates</h2>
+  <div class="text-end mb-3" *ngIf="authService.isAdmin()">
+    <a class="btn btn-primary" routerLink="/form-builder/new">Create New Form</a>
   </div>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let form of forms$ | async">
+        <td>{{ form.name }}</td>
+        <td>
+          <a class="btn btn-primary btn-sm me-2" [routerLink]="['/form-preview', form.id]">Preview</a>
+          <a class="btn btn-info btn-sm me-2" [routerLink]="['/form-submission', form.id]">Fill</a>
+          <ng-container *ngIf="authService.isAdmin()">
+            <a class="btn btn-warning btn-sm me-2" [routerLink]="['/form-builder', form.id]">Edit</a>
+            <button class="btn btn-danger btn-sm" (click)="deleteForm(form.id)">Delete</button>
+          </ng-container>
+        </td>
+      </tr>
+      <tr *ngIf="(forms$ | async)?.length === 0">
+          <td colspan="2" class="text-center">No forms created yet.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>  

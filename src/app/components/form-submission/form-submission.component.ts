@@ -1,15 +1,14 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, OnInit, inject, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router'; // Import Router
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, FormArray } from '@angular/forms'; // Added FormArray
 import { Store } from '@ngrx/store';
-import { selectCurrentForm } from '../../store/selectors/form.selectors'; // Removed selectSubmissions here as it's not directly used for this component's feedback
-import { submitForm, submitFormSuccess, submitFormFailure } from '../../store/actions/form.actions';
-import { FormTemplate, FormSubmission } from '../../models/form.model';
+import { selectCurrentForm } from '../../store/selectors/form.selectors';
+import { submitForm, submitFormSuccess, submitFormFailure, loadFormById } from '../../store/actions/form.actions'; // Added loadFormById
+import { FormTemplate, FormSubmission, FormField } from '../../models/form.model'; // Added FormField
 import { CommonModule } from '@angular/common';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop'; // For automatic unsubscription
-import { filter } from 'rxjs/operators';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter, take } from 'rxjs/operators'; // Added take
 import { ofType } from '@ngrx/effects';
-
 
 @Component({
   selector: 'app-form-submission',
@@ -18,20 +17,34 @@ import { ofType } from '@ngrx/effects';
   templateUrl: './form-submission.component.html',
   styleUrls: ['./form-submission.component.scss']
 })
-export class FormSubmissionComponent implements OnInit {
+export class FormSubmissionComponent implements OnInit, OnDestroy {
   private store = inject(Store);
   private fb = inject(FormBuilder);
   private route = inject(ActivatedRoute);
+  private router = inject(Router); // Inject Router
   form$ = this.store.select(selectCurrentForm);
   formGroup: FormGroup = this.fb.group({});
   submissionSuccess: boolean = false;
   submissionError: string | null = null;
+  currentFormTemplate: FormTemplate | null = null; // Store the form template locally
 
   ngOnInit() {
-    this.form$.subscribe(form => {
-      if (form) {
-        this.buildForm(form);
+    this.route.paramMap.pipe(
+      filter(params => params.has('id')),
+      takeUntilDestroyed() // Unsubscribe when component is destroyed
+    ).subscribe(params => {
+      const formId = params.get('id');
+      if (formId) {
+        this.store.dispatch(loadFormById({ id: formId }));
       }
+    });
+
+    this.form$.pipe(
+      filter(form => !!form), // Only proceed if form is not null
+      takeUntilDestroyed()
+    ).subscribe(form => {
+      this.currentFormTemplate = form;
+      this.buildForm(form);
     });
 
     // Listen for submission success
@@ -63,29 +76,79 @@ export class FormSubmissionComponent implements OnInit {
       if (field.required) validators.push(Validators.required);
       if (field.validations?.minLength) validators.push(Validators.minLength(field.validations.minLength));
       if (field.validations?.maxLength) validators.push(Validators.maxLength(field.validations.maxLength));
-      if (field.validations?.pattern) validators.push(Validators.pattern(field.validations.pattern));
-      if (field.id) {
+      if (field.validations?.pattern) validators.push(Validators.pattern(new RegExp(field.validations.pattern))); // Use RegExp for pattern
+
+      // Handle different field types for Reactive Forms
+      if (field.type === 'checkbox' && field.options) {
+        // For checkbox groups, create a FormArray of FormControls, one for each option
+        const checkboxControls = field.options.map(option => this.fb.control(false)); // Default to unchecked
+        group[field.id] = this.fb.array(checkboxControls, validators);
+      } else if (field.type === 'radio' && field.options) {
+        // For radio buttons, one control for the group
+        group[field.id] = ['', validators];
+      }
+      else {
         group[field.id] = ['', validators];
       }
     });
     this.formGroup = this.fb.group(group);
   }
 
+  // Helper to get form array for checkboxes
+  getCheckboxControls(fieldId: string): FormArray {
+    return this.formGroup.get(fieldId) as FormArray;
+  }
+
   onSubmit() {
     this.submissionSuccess = false; // Reset messages on new submission attempt
     this.submissionError = null;
 
+    // Manually mark all controls as touched for validation display
+    this.markAllAsTouched(this.formGroup);
+
     if (this.formGroup.valid) {
       const formId = this.route.snapshot.paramMap.get('id');
+      const formData = this.formGroup.value;
+
+      // Special handling for checkbox values to get selected options
+      if (this.currentFormTemplate) {
+        this.currentFormTemplate.fields.forEach(field => {
+          if (field.type === 'checkbox' && field.options && formData[field.id]) {
+            const selectedOptions: string[] = [];
+            (formData[field.id] as boolean[]).forEach((isChecked, index) => {
+              if (isChecked) {
+                selectedOptions.push(field.options![index]);
+              }
+            });
+            formData[field.id] = selectedOptions;
+          }
+        });
+      }
+
       const submission: FormSubmission = {
         formId: formId ?? 'unknown-form-id',
-        data: this.formGroup.value,
+        data: formData,
         submittedAt: new Date().toISOString()
       };
       this.store.dispatch(submitForm({ submission }));
     } else {
       this.submissionError = 'Please correct the highlighted fields.';
-      this.formGroup.markAllAsTouched(); // Mark all fields as touched to display validation messages
     }
+  }
+
+  // Recursive function to mark all controls in a FormGroup or FormArray as touched
+  private markAllAsTouched(formGroup: FormGroup | FormArray): void {
+    Object.values(formGroup.controls).forEach(control => {
+      if (control instanceof FormGroup || control instanceof FormArray) {
+        control.markAsTouched();
+        this.markAllAsTouched(control);
+      } else {
+        control.markAsTouched();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    // takeUntilDestroyed handles this automatically
   }
 }

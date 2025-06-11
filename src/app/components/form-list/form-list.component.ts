@@ -1,6 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { Store } from '@ngrx/store';
-import { loadForms } from '../../store/actions/form.actions';
+import { loadForms, deleteForm } from '../../store/actions/form.actions'; // Added deleteForm action
 import { selectForms } from '../../store/selectors/form.selectors';
 import { AuthService } from '../../services/auth.service';
 import { CommonModule } from '@angular/common';
@@ -20,5 +20,11 @@ export class FormListComponent implements OnInit {
 
   ngOnInit() {
     this.store.dispatch(loadForms());
+  }
+
+  deleteForm(formId: string) {
+    if (confirm('Are you sure you want to delete this form template?')) {
+      this.store.dispatch(deleteForm({ id: formId }));
+    }
   }
 }

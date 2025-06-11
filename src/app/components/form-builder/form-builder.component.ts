@@ -1,14 +1,16 @@
-import { Component, OnInit, inject } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { CdkDragDrop, moveItemInArray, transferArrayItem, DragDropModule } from '@angular/cdk/drag-drop';
+import { Component, OnInit, inject, OnDestroy } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { CdkDragDrop, moveItemInArray, DragDropModule } from '@angular/cdk/drag-drop'; // Removed transferArrayItem as it's not used directly for copying
 import { Store } from '@ngrx/store';
-import { addField, updateForm } from '../../store/actions/form.actions';
+import { addField, updateForm, saveForm, loadFormById, deleteForm } from '../../store/actions/form.actions';
 import { FormField, FormTemplate } from '../../models/form.model';
 import { AuthService } from '../../services/auth.service';
 import { v4 as uuidv4 } from 'uuid';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { selectCurrentForm } from '../../store/selectors/form.selectors';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs/operators';
 
 
 @Component({
@@ -18,91 +20,157 @@ import { selectCurrentForm } from '../../store/selectors/form.selectors';
   templateUrl: './form-builder.component.html',
   styleUrls: ['./form-builder.component.scss']
 })
-export class FormBuilderComponent implements OnInit {
+export class FormBuilderComponent implements OnInit, OnDestroy {
   private store = inject(Store);
   authService = inject(AuthService);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   availableFields: FormField[] = [
-    { type: 'text', label: 'Text Input', required: false, helpText: '', validations: {} },
-    { type: 'textarea', label: 'Multi-line Text', required: false, helpText: '', validations: {} },
-    { type: 'dropdown', label: 'Dropdown', required: false, helpText: '', validations: {}, options: ['Option 1', 'Option 2'] },
-    { type: 'checkbox', label: 'Checkbox', required: false, helpText: '', validations: {}, options: ['Option 1', 'Option 2'] },
-    { type: 'date', label: 'Date Picker', required: false, helpText: '', validations: {} },
-    { type: 'radio', label: 'Radio Buttons', required: false, helpText: '', validations: {}, options: ['Option 1', 'Option 2'] }
+    { id: 'text-palette', type: 'text', label: 'Text Input', required: false, helpText: '', validations: {} },
+    { id: 'textarea-palette', type: 'textarea', label: 'Multi-line Text', required: false, helpText: '', validations: {} },
+    { id: 'dropdown-palette', type: 'dropdown', label: 'Dropdown', required: false, helpText: '', validations: {}, options: ['Option 1', 'Option 2'] },
+    { id: 'checkbox-palette', type: 'checkbox', label: 'Checkbox Group', required: false, helpText: '', validations: {}, options: ['Option 1', 'Option 2'] },
+    { id: 'date-palette', type: 'date', label: 'Date Picker', required: false, helpText: '', validations: {} },
+    { id: 'radio-palette', type: 'radio', label: 'Radio Button Group', required: false, helpText: '', validations: {}, options: ['Option 1', 'Option 2'] }
   ];
 
   formFields: FormField[] = [];
   formTemplate: FormTemplate = { id: uuidv4(), name: 'New Form', fields: [] };
-  optionsInput: { [index: number]: string } = {}; // Temporary storage for comma-separated options
+  optionsInput: { [key: string]: string } = {}; // Temporary storage for comma-separated options, using string keys for IDs
 
   ngOnInit() {
     if (!this.authService.isAdmin()) {
       alert('Unauthorized access');
+      // this.router.navigate(['/login']); // Optionally redirect
       return;
     }
+
     const formId = this.route.snapshot.paramMap.get('id');
-    if (formId !== 'new') {
-      this.store.select(selectCurrentForm).subscribe(form => {
+    if (formId && formId !== 'new') {
+      this.store.dispatch(loadFormById({ id: formId }));
+      this.store.select(selectCurrentForm).pipe(
+        filter(form => !!form && form.id === formId), // Ensure we only react to the relevant form
+        takeUntilDestroyed() // Automatically unsubscribe when component is destroyed
+      ).subscribe(form => {
         if (form) {
-          this.formTemplate = form;
-          this.formFields = form.fields;
-          // Initialize optionsInput for existing fields and ensure validations object exists
-          this.formFields.forEach((field, index) => {
-            if (field.options) {
-              this.optionsInput[index] = field.options.join(',');
-            }
+          this.formTemplate = { ...form }; // Create a copy to avoid direct mutation of store object
+          this.formFields = form.fields.map(field => {
             if (!field.validations) { // Ensure validations object is present
               field.validations = {};
             }
+            if (field.options) {
+              this.optionsInput[field.id] = field.options.join(','); // Use field.id as key for optionsInput
+            }
+            return { ...field }; // Return a copy of each field
           });
         }
       });
+    } else {
+      // For a new form, initialize a new formTemplate with a unique ID
+      this.formTemplate = { id: uuidv4(), name: 'New Form', fields: [] };
+      this.formFields = []; // Ensure formFields is empty for a new form
+      // No need to dispatch updateForm here, it will be dispatched on first field add or name change
     }
   }
 
+  // Handle drop event for drag-and-drop functionality
   drop(event: CdkDragDrop<FormField[]>) {
+    // If dropping within the same list (reordering fields on the canvas)
     if (event.previousContainer === event.container) {
       moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-    } else {
-      // Ensure validations object is initialized for new fields
-      const newField = { 
-        ...event.previousContainer.data[event.previousIndex], 
-        id: uuidv4(), 
-        validations: event.previousContainer.data[event.previousIndex].validations || {} 
+      this.updateFormAndSave();
+    } else if (event.previousContainer.id === 'availableFields' && event.container.id === 'formCanvas') {
+      // If dragging from the available fields palette to the form canvas
+      const copiedField: FormField = {
+        ...event.previousContainer.data[event.previousIndex],
+        id: uuidv4(), // Assign a unique ID for the new field instance
+        validations: { ...event.previousContainer.data[event.previousIndex].validations }, // Deep copy validations
+        options: event.previousContainer.data[event.previousIndex].options ? [...event.previousContainer.data[event.previousIndex].options!] : undefined // Deep copy options
       };
-      transferArrayItem(
-        event.previousContainer.data,
-        event.container.data,
-        event.previousIndex,
-        event.currentIndex
-      );
-      // Replace the transferred item with the newField to ensure ID and validations are set
-      event.container.data[event.currentIndex] = newField;
-      this.store.dispatch(addField({ field: newField }));
+      this.formFields.splice(event.currentIndex, 0, copiedField); // Insert the copied field at the dropped index
+      // Initialize optionsInput for the new field using its unique ID
+      this.optionsInput[copiedField.id] = copiedField.options ? copiedField.options.join(',') : '';
+      this.updateFormAndSave();
     }
-    this.updateForm();
   }
 
-  updateField(index: number, updatedField: FormField) {
-    this.formFields[index] = { ...updatedField }; // Create a new object to trigger change detection if necessary
-    this.updateForm();
+  // Called when dropping from available fields (palette) to form canvas
+  copyField(event: CdkDragDrop<FormField[]>) {
+    const copiedField: FormField = {
+      ...event.previousContainer.data[event.previousIndex],
+      id: uuidv4(), // Assign a unique ID for the new field instance
+      validations: { ...event.previousContainer.data[event.previousIndex].validations }, // Deep copy validations
+      options: event.previousContainer.data[event.previousIndex].options ? [...event.previousContainer.data[event.previousIndex].options!] : undefined // Deep copy options
+    };
+    this.formFields.splice(event.currentIndex, 0, copiedField); // Insert the copied field at the dropped index
+    this.optionsInput[copiedField.id] = copiedField.options ? copiedField.options.join(',') : ''; // Initialize optionsInput for the new field
+    this.updateFormAndSave();
   }
 
-  updateFormName(target: any) {
-    this.formTemplate.name = target.value;
-    this.updateForm();
+
+  updateField(index: number) {
+    // The ngModel already directly updates the properties. Just need to trigger save.
+    // Ensure validations object exists before attempting to access its properties.
+    if (!this.formFields[index].validations) {
+        this.formFields[index].validations = {};
+    }
+    this.updateFormAndSave();
   }
 
-  updateOptions(index: number, optionsString: any) {
-    this.optionsInput[index] = optionsString.value;
-    const options = optionsString ? optionsString.value.split(',').map((opt: string) => opt.trim()).filter((opt: string) => opt) : [];
+  updateFormName(event: Event) {
+    this.formTemplate.name = (event.target as HTMLInputElement).value;
+    this.updateFormAndSave();
+  }
+
+  updateOptions(index: number, event: Event) {
+    const value = (event.target as HTMLInputElement).value;
+    const fieldId = this.formFields[index].id; // Get the unique ID of the field
+    this.optionsInput[fieldId] = value;
+    const options = value ? value.split(',').map((opt: string) => opt.trim()).filter((opt: string) => opt) : [];
     this.formFields[index] = { ...this.formFields[index], options };
-    this.updateForm();
+    this.updateFormAndSave();
   }
 
-  updateForm() {
-    this.formTemplate.fields = this.formFields;
-    this.store.dispatch(updateForm({ form: this.formTemplate }));
+  deleteField(index: number) {
+    const deletedFieldId = this.formFields[index].id;
+    this.formFields.splice(index, 1);
+    delete this.optionsInput[deletedFieldId]; // Remove from temporary options storage using its ID
+    this.updateFormAndSave();
+  }
+
+  saveCurrentForm() {
+    if (!this.formTemplate.name.trim()) {
+        alert('Form name cannot be empty.');
+        return;
+    }
+    if (this.formFields.length === 0) {
+        alert('Form must contain at least one field.');
+        return;
+    }
+    // Dispatch saveForm action to persist the current formTemplate
+    this.store.dispatch(saveForm({ form: this.formTemplate }));
+    alert('Form saved successfully!'); // Basic user feedback
+    this.router.navigate(['/forms']); // Navigate back to form list
+  }
+
+  deleteCurrentForm() {
+    if (confirm('Are you sure you want to delete this form? This action cannot be undone.')) {
+      this.store.dispatch(deleteForm({ id: this.formTemplate.id }));
+      alert('Form deleted successfully!');
+      this.router.navigate(['/forms']); // Navigate back to form list
+    }
+  }
+
+  // Helper to dispatch updateForm and then saveForm
+  private updateFormAndSave() {
+    this.formTemplate.fields = this.formFields; // Ensure formTemplate.fields is up-to-date
+    this.store.dispatch(updateForm({ form: this.formTemplate })); // Update current form in store
+    // Add a debounce or throttle if this is called very frequently to avoid excessive saves
+    this.store.dispatch(saveForm({ form: this.formTemplate })); // Persist to local storage
+  }
+
+  ngOnDestroy(): void {
+    // takeUntilDestroyed handles subscriptions automatically
   }
 }

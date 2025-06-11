@@ -1,5 +1,5 @@
 export interface FormField {
-  id?: string;
+  id: string;
   type: 'text' | 'textarea' | 'dropdown' | 'checkbox' | 'date' | 'radio';
   label: string;
   required: boolean;

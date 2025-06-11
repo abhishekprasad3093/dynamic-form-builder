@@ -2,47 +2,65 @@
   <h2>Form Builder</h2>
   <div class="mb-3">
     <label for="formName" class="form-label">Form Name</label>
-    <input type="text" class="form-control" id="formName" [(ngModel)]="formTemplate.name" (input)="updateFormName($event.target)">
+    <input type="text" class="form-control" id="formName" [(ngModel)]="formTemplate.name" (input)="updateFormName($event)">
   </div>
   <div class="row">
     <div class="col-md-4">
       <h4>Available Fields</h4>
-      <div cdkDropList [cdkDropListData]="availableFields" (cdkDropListDropped)="drop($event)">
+      <div cdkDropList id="availableFields" [cdkDropListData]="availableFields" [cdkDropListConnectedTo]="['formCanvas']" (cdkDropListDropped)="copyField($event)" class="list-group available-fields">
         <div class="list-group-item" *ngFor="let field of availableFields" cdkDrag>{{ field.label }}</div>
       </div>
     </div>
     <div class="col-md-8">
       <h4>Form Canvas</h4>
-      <div cdkDropList [cdkDropListData]="formFields" (cdkDropListDropped)="drop($event)">
-        <div class="list-group-item" *ngFor="let field of formFields; let i = index">
-          <div class="row">
-            <div class="col-md-8">
-              <label class="form-label">Label</label>
-              <input type="text" class="form-control" [(ngModel)]="formFields[i].label" (input)="updateField(i, formFields[i])">
-              <label class="form-label">Help Text</label>
-              <input type="text" class="form-control" [(ngModel)]="formFields[i].helpText" (input)="updateField(i, formFields[i])">
-              <label class="form-check-label">
-                <input type="checkbox" class="form-check-input" [(ngModel)]="formFields[i].required" (change)="updateField(i, formFields[i])"> Required
-              </label>
+      <div cdkDropList id="formCanvas" [cdkDropListData]="formFields" (cdkDropListDropped)="drop($event)" class="list-group form-canvas">
+        <div class="list-group-item" *ngFor="let field of formFields; let i = index" cdkDrag>
+          <div class="row align-items-center">
+            <div class="col-md-10">
+              <div class="mb-2">
+                <label class="form-label">Field Type: {{ field.type | titlecase }}</label><br>
+                <label class="form-label">Field Label</label>
+                <input type="text" class="form-control" [(ngModel)]="formFields[i].label" (input)="updateField(i)">
+              </div>
+              <div class="mb-2">
+                <label class="form-label">Help Text</label>
+                <input type="text" class="form-control" [(ngModel)]="formFields[i].helpText" (input)="updateField(i)">
+              </div>
+              <div class="form-check mb-2">
+                <input type="checkbox" class="form-check-input" [(ngModel)]="formFields[i].required" (change)="updateField(i)">
+                <label class="form-check-label">Required</label>
+              </div>
 
-              <div *ngIf="field.type === 'text' || field.type === 'textarea'">
+              <div *ngIf="field.type === 'text' || field.type === 'textarea'" class="mb-2">
                 <label class="form-label">Min Length</label>
-                <input type="number" class="form-control" [(ngModel)]="formFields[i].validations.minLength" (input)="updateField(i, formFields[i])">
+                <input type="number" class="form-control" [(ngModel)]="formFields[i].validations.minLength" (input)="updateField(i)">
                 <label class="form-label">Max Length</label>
-                <input type="number" class="form-control" [(ngModel)]="formFields[i].validations.maxLength" (input)="updateField(i, formFields[i])">
+                <input type="number" class="form-control" [(ngModel)]="formFields[i].validations.maxLength" (input)="updateField(i)">
                 <label class="form-label">Pattern (Regex)</label>
-                <input type="text" class="form-control" [(ngModel)]="formFields[i].validations.pattern" (input)="updateField(i, formFields[i])">
+                <input type="text" class="form-control" [(ngModel)]="formFields[i].validations.pattern" (input)="updateField(i)">
               </div>
 
-              <div *ngIf="field.type === 'dropdown' || field.type === 'checkbox' || field.type === 'radio'">
+              <div *ngIf="field.type === 'dropdown' || field.type === 'checkbox' || field.type === 'radio'" class="mb-2">
                 <label class="form-label">Options (comma-separated)</label>
-                <input type="text" class="form-control" [(ngModel)]="optionsInput[i]" (input)="updateOptions(i, $event.target)">
+                <input type="text" class="form-control" [(ngModel)]="optionsInput[i]" (input)="updateOptions(i, $event)">
+                <small class="form-text text-muted">Example: Option 1, Option 2, Option 3</small>
               </div>
+            </div>
+            <div class="col-md-2 d-flex align-items-center justify-content-end">
+              <button class="btn btn-danger btn-sm" (click)="deleteField(i)">Delete</button>
             </div>
           </div>
         </div>
+        <div *ngIf="formFields.length === 0" class="alert alert-info text-center mt-3">
+            Drag and drop fields here to build your form.
+        </div>
       </div>
     </div>
+  </div>
+
+  <div class="mt-4">
+    <button class="btn btn-success me-2" (click)="saveCurrentForm()">Save Form</button>
+    <button class="btn btn-danger" (click)="deleteCurrentForm()" *ngIf="formTemplate.id !== 'new-form-id'">Delete Form</button>
   </div>
 </div>
 <ng-template #unauthorized>
